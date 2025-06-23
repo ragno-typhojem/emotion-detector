@@ -189,3 +189,121 @@ video {
   color: #666;
   padding: 10px 0;
 }
+
+/* Mevcut CSS'in sonuna ekleyin */
+
+@media screen and (max-width: 768px) {
+  /* Konteyner düzenini mobil için değiştir */
+  .container {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  /* Detector Area */
+  .detector-area {
+    flex: none;
+    width: 100%;
+    height: 50vh; /* Ekranın yarısı */
+  }
+
+  /* Video boyutlandırma */
+  video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* Fun Section */
+  .fun-section {
+    flex: none;
+    width: 100%;
+    padding: 15px;
+  }
+
+  /* Font boyutlarını küçült */
+  .emotion-display {
+    font-size: 1.5rem;
+    padding: 10px 20px;
+    bottom: 10px;
+    left: 10px;
+  }
+
+  .big-emoji {
+    font-size: 3rem;
+  }
+
+  .fun-section h2 {
+    font-size: 1.4rem;
+  }
+
+  .recommendation p {
+    font-size: 1rem;
+  }
+
+  /* Responsive Text Sizing */
+  body {
+    font-size: 14px;
+  }
+
+  /* Mobil cihazlarda kaydırma izni */
+  body {
+    overflow-y: auto;
+  }
+
+  /* Emotion History */
+  .history-section {
+    max-height: 300px;
+  }
+
+  /* Footer */
+  .footer {
+    font-size: 0.7rem;
+    padding: 5px;
+  }
+
+  /* Responsive Button */
+  .fun-button {
+    width: 100%;
+    padding: 10px 15px;
+  }
+
+  /* Overlay ve Emotion Display */
+  .overlay, .emotion-display {
+    position: absolute;
+  }
+
+  /* Logo */
+  .logo {
+    width: 150px;
+  }
+}
+
+/* Küçük ekranlar için ek ayarlamalar */
+@media screen and (max-width: 480px) {
+  .detector-area {
+    height: 40vh;
+  }
+
+  .emotion-display {
+    font-size: 1.2rem;
+    padding: 8px 15px;
+  }
+
+  .big-emoji {
+    font-size: 2.5rem;
+  }
+}
+
+/* Dokunmatik cihazlar için iyileştirmeler */
+@media (hover: none) and (pointer: coarse) {
+  /* Dokunmatik cihazlar için özel stil ayarları */
+  .fun-button {
+    padding: 15px 20px;
+  }
+
+  /* Daha büyük tıklanabilir alanlar */
+  .recommendation, .current-emotion {
+    padding: 20px;
+  }
+}

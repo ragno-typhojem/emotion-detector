@@ -1,6 +1,6 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "Duygu Detektörü",
+  "name": "Duygularınızı Tanıyan Yapay Zeka",
   "icons": [
     {
       "src": "favicon.ico",
