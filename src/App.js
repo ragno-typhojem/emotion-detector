@@ -16,15 +16,15 @@ function App() {
   const [showHistory, setShowHistory] = useState(false);
   const [recommendation, setRecommendation] = useState('');
   const [isReady, setIsReady] = useState(false);
+  const [explosions, setExplosions] = useState([]); // 💥 Tüm duygu efektleri
 
   // Zamanlayıcılar
   const detectionIntervalRef = useRef(null);
   const lastEmotionChangeRef = useRef(0);
-  const lastEmotionTypeRef = useRef('');
 
   // Sabitler
-  const EMOTION_CHANGE_COOLDOWN = 1000;
-  const DETECTION_INTERVAL = 40;
+  const EMOTION_CHANGE_COOLDOWN = 500;
+  const DETECTION_INTERVAL = 110;
 
   // Duygu haritası
   const emotionMap = {
@@ -37,7 +37,7 @@ function App() {
     'surprised': { emoji: '😮', text: 'Şaşırmış gözüküyorsun', color: '#E91E63' }
   };
 
-  // ÖNERİLER - SADECE DUYGU BAZLI
+  // Rastgele öneri al
   const recommendations = {
     'happy': ['Bu mutluluğu paylaşmayı unutma! Paylaşmak güzeldir📱', 'Dans et! Hep gülümse 💃', 'Gülümsemeye devam et! Mutlu oldukça herşeyi başarırsın😊', 'Pozitif enerjini yay! Yaydıkça çevren de mutlu olur✨'],
     'sad': ['Derin nefes al 🌸 Üzgünlüğünü paylaşarak atlatırsın😊 ', 'Sevdiğin müziği dinle 🎵 Her zaman iyi tarafından bak', 'Kendine zaman ayır ☕', 'Asla pes etme, çalışırsan üstesinden gelemeyeceğin iş yok 💪'],
@@ -48,25 +48,60 @@ function App() {
     'fearful': ['Güvendesin 🤗, Korkmana gerek yok 😊', 'Sakin ol 🕊️ Korkma😊', 'Derin nefes al 🌸 Korkunun üstesinden gel💪', 'Cesaretli ol 💪 Asla pes etme ve korkma!']
   };
 
-  // Rastgele öneri al
   const getRandomRecommendation = useCallback((emotionKey) => {
     const recs = recommendations[emotionKey];
     if (!recs || recs.length === 0) return '';
     return recs[Math.floor(Math.random() * recs.length)];
   }, []);
 
+  // 🎭 Her duygu için özel efekt emojileri
+  const emotionEffects = {
+    'happy': ['🌸', '🌺', '🌻', '🌷', '🌹', '💐', '🌼', '🥀', '🌿', '🍀'], // Çiçekler
+    'sad': ['💧', '☔', '🌧️', '☁️', '💦', '🌊', '😭', '💔', '🥀', '🌫️'], // Su damlaları
+    'angry': ['🔥', '💥', '⚡', '🌋', '💢', '😡', '🚨', '🔴', '💀', '⭐'], // Ateş efektleri
+    'disgusted': ['🤮', '💩', '🦠', '☠️', '🤢', '💚', '🧪', '⚠️', '🚫', '🗑️'], // İğrenme
+    'fearful': ['👻', '🕷️', '🦇', '💀', '⚡', '🌩️', '😱', '🔮', '🌙', '⭐'], // Korku
+    'surprised': ['💥', '⚡', '✨', '💫', '🌟', '🎆', '🎇', '💢', '🤯', '💭'] // Şaşkınlık
+  };
+
+  const createEmotionExplosion = useCallback((emotionKey) => {
+    // Nötr duygu için efekt yok
+    if (emotionKey === 'neutral') return;
+
+    const newExplosions = [];
+    const count = 5; // Her duygu için 5 emoji
+    const emojis = emotionEffects[emotionKey] || ['✨'];
+
+    for (let i = 0; i < count; i++) {
+      const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+
+      newExplosions.push({
+        id: Date.now() + i + Math.random() * 1000, // Benzersiz ID
+        emoji: randomEmoji,
+        x: Math.random() * 80 + 10,
+        y: Math.random() * 80 + 10,
+        size: 20 + Math.random() * 16, // 20-36px arası
+        duration: 1200 + Math.random() * 800, // 1.2-2s arası
+        emotionType: emotionKey
+      });
+    }
+
+    setExplosions(prev => [...prev, ...newExplosions]);
+
+    // Emoji'leri 2 saniye sonra temizle
+    setTimeout(() => {
+      setExplosions(prev => prev.filter(e =>
+        !newExplosions.some(ne => ne.id === e.id)
+      ));
+    }, 2000);
+  }, []);
+
   // Yüz tespiti fonksiyonu
   const detectFaces = useCallback(async () => {
-    if (!videoRef.current || !isReady) {
-      return;
-    }
-
+    if (!videoRef.current || !isReady) return;
     const video = videoRef.current;
 
-    // Video hazır değilse bekle
-    if (video.readyState < 2 || video.videoWidth === 0) {
-      return;
-    }
+    if (video.readyState < 2 || video.videoWidth === 0) return;
 
     try {
       const detection = await faceapi.detectSingleFace(
@@ -91,16 +126,13 @@ function App() {
           const newEmotionText = `${emotionData.emoji} ${emotionData.text}`;
           const now = Date.now();
 
-          // Duygu değişimi kontrolü
           if (currentEmotion !== newEmotionText &&
               now - lastEmotionChangeRef.current > EMOTION_CHANGE_COOLDOWN) {
 
-            // HER İKİ STATE'İ DE AYNI ANDA GÜNCELLE
             setCurrentEmotion(newEmotionText);
             setDisplayedEmotion(newEmotionText);
             lastEmotionChangeRef.current = now;
 
-            // Geçmişe ekle
             setEmotionHistory(prev => [...prev.slice(-7), {
               emotion: newEmotionText,
               timestamp: new Date().toLocaleTimeString('tr-TR', {
@@ -110,15 +142,13 @@ function App() {
               confidence: Math.round(confidence * 100)
             }]);
 
-            // ÖNERİ SADECE DUYGU TÜRÜ DEĞİŞTİĞİNDE VER
-            if (lastEmotionTypeRef.current !== dominant) {
-              const newAdvice = getRandomRecommendation(dominant);
-              setRecommendation(newAdvice);
-              lastEmotionTypeRef.current = dominant;
-            }
+            // 🎭 Her duygu için (nötr hariç) efekt tetikle
+            createEmotionExplosion(dominant);
+
+            const newAdvice = getRandomRecommendation(dominant);
+            setRecommendation(newAdvice);
           }
 
-          // Canvas çizimi
           if (canvasRef.current) {
             const ctx = canvasRef.current.getContext('2d');
             ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
@@ -144,16 +174,13 @@ function App() {
           }
         }
       } else {
-        // Yüz yok, canvas temizle
         if (canvasRef.current) {
           const ctx = canvasRef.current.getContext('2d');
           ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
         }
       }
-    } catch (error) {
-      // Sessiz hata
-    }
-  }, [isReady, currentEmotion, getRandomRecommendation]);
+    } catch (error) {}
+  }, [isReady, currentEmotion, getRandomRecommendation, createEmotionExplosion]);
 
   // Sistem başlatma
   useEffect(() => {
@@ -164,7 +191,6 @@ function App() {
         setLoading(true);
         setDisplayedEmotion('Sistem başlatılıyor...');
 
-        // Modelleri yükle
         await Promise.all([
           faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
           faceapi.nets.faceExpressionNet.loadFromUri('/models')
@@ -172,7 +198,6 @@ function App() {
 
         if (!isMounted) return;
 
-        // Basit kamera ayarları
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             width: 720,
@@ -185,12 +210,10 @@ function App() {
 
         videoRef.current.srcObject = stream;
 
-        // Video hazır olduğunda
         videoRef.current.onloadedmetadata = () => {
           if (!isMounted || !videoRef.current) return;
 
           videoRef.current.play().then(() => {
-            // Canvas ayarla
             if (canvasRef.current) {
               canvasRef.current.width = videoRef.current.videoWidth;
               canvasRef.current.height = videoRef.current.videoHeight;
@@ -199,7 +222,6 @@ function App() {
             setLoading(false);
             setIsReady(true);
 
-            // İLK BAŞTA HER İKİ STATE'İ DE AYARLA
             const initialText = 'Yüzünüzü kameraya gösterin';
             setDisplayedEmotion(initialText);
             setCurrentEmotion('🤖 Hazır');
@@ -233,7 +255,7 @@ function App() {
     };
   }, []);
 
-  // Tespit başlatma - ayrı useEffect
+  // Tespit başlatma
   useEffect(() => {
     if (isReady) {
       if (detectionIntervalRef.current) {
@@ -282,6 +304,38 @@ function App() {
             Başlatılıyor...
           </div>
         )}
+
+        {/* 🎭 Tüm duygu efektleri */}
+        <div className="explosion-container">
+          {explosions.map((explosion) => (
+            <div
+              key={explosion.id}
+              className="explosion-emoji"
+              style={{
+                left: `${explosion.x}%`,
+                top: `${explosion.y}%`,
+                fontSize: `${explosion.size}px`,
+                animationDuration: `${explosion.duration}ms`,
+                // Özel animasyon türleri
+                animationName: explosion.emotionType === 'angry' ? 'fireExplode' :
+                              explosion.emotionType === 'happy' ? 'flowerBloom' :
+                              explosion.emotionType === 'sad' ? 'rainDrop' :
+                              explosion.emotionType === 'fearful' ? 'ghostFloat' :
+                              explosion.emotionType === 'surprised' ? 'sparkExplode' :
+                              'explode',
+                // Duyguya göre renk efektleri
+                filter: explosion.emotionType === 'angry' ? 'hue-rotate(0deg) brightness(1.2)' :
+                       explosion.emotionType === 'happy' ? 'hue-rotate(60deg) brightness(1.1)' :
+                       explosion.emotionType === 'sad' ? 'hue-rotate(240deg) brightness(0.8)' :
+                       explosion.emotionType === 'fearful' ? 'hue-rotate(280deg) brightness(0.7)' :
+                       explosion.emotionType === 'surprised' ? 'hue-rotate(320deg) brightness(1.3)' :
+                       'none'
+              }}
+            >
+              {explosion.emoji}
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="fun-section">
@@ -299,7 +353,6 @@ function App() {
           </p>
         </div>
 
-        {/* ÖNERİ BÖLÜMÜ - HER ZAMAN GÖRÜNÜR */}
         <div className="recommendation">
           <h4>💡 AI Tavsiyesi</h4>
           <p>{recommendation || 'Bir duygu tespit edildiğinde tavsiye gösterilecek'}</p>
@@ -317,7 +370,6 @@ function App() {
         {showHistory && (
           <div className="history-section">
             <h4>📈 Son Duygular</h4>
-
             {emotionHistory.length > 0 ? (
               <div className="history-grid">
                 {emotionHistory.map((item, index) => (
