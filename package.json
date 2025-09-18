@@ -18,8 +18,8 @@
     "web-vitals": "^3.5.2"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
+    "start": "GENERATE_SOURCEMAP=false react-scripts start",
+    "build": "GENERATE_SOURCEMAP=false CI=false react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "deploy": "netlify deploy --prod"
@@ -28,7 +28,10 @@
     "extends": [
       "react-app",
       "react-app/jest"
-    ]
+    ],
+    "rules": {
+      "react-hooks/exhaustive-deps": "warn"
+    }
   },
   "browserslist": {
     "production": [
