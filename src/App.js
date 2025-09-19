@@ -28,7 +28,7 @@ function App() {
   const lastDetectionRef = useRef(0);
 
   // Geliştirilmiş sabitler
-  const EMOTION_CHANGE_COOLDOWN = 1500; // 1.5 saniye (daha uzun)
+  const EMOTION_CHANGE_COOLDOWN = 1100; // 1.5 saniye (daha uzun)
   const DETECTION_INTERVAL = 150; // Biraz daha yavaş
   const BUFFER_SIZE = 8; // Daha büyük buffer
   const STABILITY_THRESHOLD = 5; // Kararlılık için gereken aynı duygu sayısı
