@@ -30,7 +30,7 @@ function App() {
   // Geliştirilmiş sabitler
   const EMOTION_CHANGE_COOLDOWN = 1100; // 1.5 saniye (daha uzun)
   const DETECTION_INTERVAL = 110; // Biraz daha yavaş
-  const BUFFER_SIZE = 8; // Daha büyük buffer
+  const BUFFER_SIZE = 7; // Daha büyük buffer
   const STABILITY_THRESHOLD = 5; // Kararlılık için gereken aynı duygu sayısı
   const MIN_CONFIDENCE = 0.65; // Daha yüksek güven eşiği
   const STABILITY_TIME = 1100; // 2 saniye kararlı kalma süresi
