@@ -16,17 +16,26 @@ function App() {
   const [showHistory, setShowHistory] = useState(false);
   const [recommendation, setRecommendation] = useState('');
   const [isReady, setIsReady] = useState(false);
+  const [explosions, setExplosions] = useState([]);
+  const [confidenceLevel, setConfidenceLevel] = useState(0);
+  const [isStable, setIsStable] = useState(false);
 
-  // Zamanlayıcılar
+  // Zamanlayıcılar ve ref'ler
   const detectionIntervalRef = useRef(null);
   const lastEmotionChangeRef = useRef(0);
-  const lastEmotionTypeRef = useRef('');
+  const emotionBufferRef = useRef([]);
+  const stabilityTimerRef = useRef(null);
+  const lastDetectionRef = useRef(0);
 
-  // Sabitler
-  const EMOTION_CHANGE_COOLDOWN = 1000;
-  const DETECTION_INTERVAL = 40;
+  // Geliştirilmiş sabitler
+  const EMOTION_CHANGE_COOLDOWN = 1100; // 1.5 saniye (daha uzun)
+  const DETECTION_INTERVAL = 110; // Biraz daha yavaş
+  const BUFFER_SIZE = 7; // Daha büyük buffer
+  const STABILITY_THRESHOLD = 5; // Kararlılık için gereken aynı duygu sayısı
+  const MIN_CONFIDENCE = 0.65; // Daha yüksek güven eşiği
+  const STABILITY_TIME = 1100; // 2 saniye kararlı kalma süresi
 
-  // Duygu haritası
+  // Duygu haritası (aynı)
   const emotionMap = {
     'happy': { emoji: '😄', text: 'Mutlu Gözüküyorsun!', color: '#4CAF50' },
     'sad': { emoji: '😢', text: 'Üzgünsün', color: '#2196F3' },
@@ -37,7 +46,7 @@ function App() {
     'surprised': { emoji: '😮', text: 'Şaşırmış gözüküyorsun', color: '#E91E63' }
   };
 
-  // ÖNERİLER - SADECE DUYGU BAZLI
+  // Öneri sistemi (aynı)
   const recommendations = {
     'happy': ['Bu mutluluğu paylaşmayı unutma! Paylaşmak güzeldir📱', 'Dans et! Hep gülümse 💃', 'Gülümsemeye devam et! Mutlu oldukça herşeyi başarırsın😊', 'Pozitif enerjini yay! Yaydıkça çevren de mutlu olur✨'],
     'sad': ['Derin nefes al 🌸 Üzgünlüğünü paylaşarak atlatırsın😊 ', 'Sevdiğin müziği dinle 🎵 Her zaman iyi tarafından bak', 'Kendine zaman ayır ☕', 'Asla pes etme, çalışırsan üstesinden gelemeyeceğin iş yok 💪'],
@@ -48,73 +57,180 @@ function App() {
     'fearful': ['Güvendesin 🤗, Korkmana gerek yok 😊', 'Sakin ol 🕊️ Korkma😊', 'Derin nefes al 🌸 Korkunun üstesinden gel💪', 'Cesaretli ol 💪 Asla pes etme ve korkma!']
   };
 
-  // Rastgele öneri al
   const getRandomRecommendation = useCallback((emotionKey) => {
     const recs = recommendations[emotionKey];
     if (!recs || recs.length === 0) return '';
     return recs[Math.floor(Math.random() * recs.length)];
   }, []);
 
-  // Yüz tespiti fonksiyonu
-  const detectFaces = useCallback(async () => {
-    if (!videoRef.current || !isReady) {
-      return;
+  // Efekt emojileri (aynı)
+  const emotionEffects = {
+    'happy': ['🌸', '🌺', '🌻', '🌷', '🌹', '💐', '🌼', '🥀', '🌿', '🍀'],
+    'sad': ['💧', '☔', '🌧️', '☁️', '💦', '🌊', '😭', '💔', '🥀', '🌫️'],
+    'angry': ['🔥', '💥', '⚡', '🌋', '💢', '😡', '🚨', '🔴', '💀', '⭐'],
+    'disgusted': ['🤮', '💩', '🦠', '☠️', '🤢', '💚', '🧪', '⚠️', '🚫', '🗑️'],
+    'fearful': ['👻', '🕷️', '🦇', '💀', '⚡', '🌩️', '😱', '🔮', '🌙', '⭐'],
+    'surprised': ['💥', '⚡', '✨', '💫', '🌟', '🎆', '🎇', '💢', '🤯', '💭']
+  };
+
+  // 🎯 Geliştirilmiş duygu kararlılık kontrolü
+  const analyzeEmotionStability = useCallback((newEmotion, confidence) => {
+    const now = Date.now();
+
+    // Buffer'a yeni duyguyu ekle
+    emotionBufferRef.current.push({
+      emotion: newEmotion,
+      confidence: confidence,
+      timestamp: now
+    });
+
+    // Buffer boyutunu kontrol et
+    if (emotionBufferRef.current.length > BUFFER_SIZE) {
+      emotionBufferRef.current.shift();
     }
+
+    // Son 3 saniye içindeki verileri filtrele
+    const recentEmotions = emotionBufferRef.current.filter(
+      item => now - item.timestamp < 3000
+    );
+
+    if (recentEmotions.length < 3) return false;
+
+    // Aynı duygunun kaç kez tekrar ettiğini say
+    const emotionCounts = {};
+    let totalConfidence = 0;
+
+    recentEmotions.forEach(item => {
+      emotionCounts[item.emotion] = (emotionCounts[item.emotion] || 0) + 1;
+      totalConfidence += item.confidence;
+    });
+
+    const averageConfidence = totalConfidence / recentEmotions.length;
+    const mostFrequent = Object.entries(emotionCounts)
+      .reduce((a, b) => a[1] > b[1] ? a : b);
+
+    // Kararlılık kriterleri
+    const isFrequent = mostFrequent[1] >= STABILITY_THRESHOLD;
+    const isConfident = averageConfidence >= MIN_CONFIDENCE;
+    const isSameEmotion = mostFrequent[0] === newEmotion;
+
+    return isFrequent && isConfident && isSameEmotion;
+  }, []);
+
+  // 🎭 Efekt oluşturma (aynı)
+  const createEmotionExplosion = useCallback((emotionKey) => {
+    if (emotionKey === 'neutral') return;
+
+    const newExplosions = [];
+    const count = 5;
+    const emojis = emotionEffects[emotionKey] || ['✨'];
+
+    for (let i = 0; i < count; i++) {
+      const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+
+      newExplosions.push({
+        id: Date.now() + i + Math.random() * 1000,
+        emoji: randomEmoji,
+        x: Math.random() * 80 + 10,
+        y: Math.random() * 80 + 10,
+        size: 20 + Math.random() * 16,
+        duration: 1200 + Math.random() * 800,
+        emotionType: emotionKey
+      });
+    }
+
+    setExplosions(prev => [...prev, ...newExplosions]);
+
+    setTimeout(() => {
+      setExplosions(prev => prev.filter(e =>
+        !newExplosions.some(ne => ne.id === e.id)
+      ));
+    }, 2000);
+  }, []);
+
+  // 🧠 Geliştirilmiş yüz tespiti
+  const detectFaces = useCallback(async () => {
+    if (!videoRef.current || !isReady) return;
+
+    const now = Date.now();
+    if (now - lastDetectionRef.current < DETECTION_INTERVAL) return;
+    lastDetectionRef.current = now;
 
     const video = videoRef.current;
-
-    // Video hazır değilse bekle
-    if (video.readyState < 2 || video.videoWidth === 0) {
-      return;
-    }
+    if (video.readyState < 2 || video.videoWidth === 0) return;
 
     try {
       const detection = await faceapi.detectSingleFace(
         video,
         new faceapi.TinyFaceDetectorOptions({
-          inputSize: 320,
-          scoreThreshold: 0.4
+          inputSize: 416, // Daha yüksek çözünürlük
+          scoreThreshold: 0.3 // Daha düşük eşik, daha iyi tespit
         })
       ).withFaceExpressions();
 
       if (detection && detection.expressions) {
         const expressions = detection.expressions;
-        const dominant = Object.entries(expressions)
-          .reduce((a, b) => a[1] > b[1] ? a : b)[0];
 
-        const confidence = expressions[dominant];
+        // En baskın 2 duyguyu al ve karşılaştır
+        const sortedEmotions = Object.entries(expressions)
+          .sort((a, b) => b[1] - a[1]);
 
-        if (confidence > 0.55) {
-          const emotionData = emotionMap[dominant];
+        const [dominant, secondary] = sortedEmotions;
+        const dominantEmotion = dominant[0];
+        const dominantConfidence = dominant[1];
+        const secondaryConfidence = secondary ? secondary[1] : 0;
+
+        // Duygu arasındaki fark yeterince büyük mü?
+        const confidenceDiff = dominantConfidence - secondaryConfidence;
+
+        // Güven seviyesini güncelle
+        setConfidenceLevel(Math.round(dominantConfidence * 100));
+
+        // Yeterli güven ve fark varsa işle
+        if (dominantConfidence >= MIN_CONFIDENCE && confidenceDiff >= 0.15) {
+          const emotionData = emotionMap[dominantEmotion];
           if (!emotionData) return;
 
-          const newEmotionText = `${emotionData.emoji} ${emotionData.text}`;
-          const now = Date.now();
+          // Kararlılık analizi
+          const isStableEmotion = analyzeEmotionStability(dominantEmotion, dominantConfidence);
+          setIsStable(isStableEmotion);
 
-          // Duygu değişimi kontrolü
-          if (currentEmotion !== newEmotionText &&
-              now - lastEmotionChangeRef.current > EMOTION_CHANGE_COOLDOWN) {
+          if (isStableEmotion) {
+            const newEmotionText = `${emotionData.emoji} ${emotionData.text}`;
 
-            // HER İKİ STATE'İ DE AYNI ANDA GÜNCELLE
-            setCurrentEmotion(newEmotionText);
-            setDisplayedEmotion(newEmotionText);
-            lastEmotionChangeRef.current = now;
+            // Duygu değişikliği kontrolü
+            if (currentEmotion !== newEmotionText &&
+                now - lastEmotionChangeRef.current > EMOTION_CHANGE_COOLDOWN) {
 
-            // Geçmişe ekle
-            setEmotionHistory(prev => [...prev.slice(-7), {
-              emotion: newEmotionText,
-              timestamp: new Date().toLocaleTimeString('tr-TR', {
-                hour: '2-digit',
-                minute: '2-digit'
-              }),
-              confidence: Math.round(confidence * 100)
-            }]);
+              setCurrentEmotion(newEmotionText);
+              setDisplayedEmotion(newEmotionText);
+              lastEmotionChangeRef.current = now;
 
-            // ÖNERİ SADECE DUYGU TÜRÜ DEĞİŞTİĞİNDE VER
-            if (lastEmotionTypeRef.current !== dominant) {
-              const newAdvice = getRandomRecommendation(dominant);
+              // Geçmişe ekle
+              setEmotionHistory(prev => [...prev.slice(-9), {
+                emotion: newEmotionText,
+                timestamp: new Date().toLocaleTimeString('tr-TR', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit'
+                }),
+                confidence: Math.round(dominantConfidence * 100),
+                stability: '✅ Kararlı'
+              }]);
+
+              // Efekt ve öneri
+              createEmotionExplosion(dominantEmotion);
+              const newAdvice = getRandomRecommendation(dominantEmotion);
               setRecommendation(newAdvice);
-              lastEmotionTypeRef.current = dominant;
+
+              // Kararlılık timer'ını resetle
+              if (stabilityTimerRef.current) {
+                clearTimeout(stabilityTimerRef.current);
+              }
+
+              stabilityTimerRef.current = setTimeout(() => {
+                setIsStable(false);
+              }, STABILITY_TIME);
             }
           }
 
@@ -124,8 +240,13 @@ function App() {
             ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
 
             const box = detection.detection.box;
-            ctx.strokeStyle = emotionData.color;
-            ctx.lineWidth = 2;
+
+            // Kararlılık durumuna göre renk
+            const strokeColor = isStableEmotion ? emotionData.color : '#888888';
+            const lineWidth = isStableEmotion ? 3 : 2;
+
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = lineWidth;
             ctx.strokeRect(
               canvasRef.current.width - box.x - box.width,
               box.y,
@@ -133,29 +254,52 @@ function App() {
               box.height
             );
 
-            ctx.fillStyle = emotionData.color;
-            ctx.font = '12px Arial';
+            // Güven seviyesi ve kararlılık göstergesi
+            ctx.fillStyle = strokeColor;
+            ctx.font = 'bold 14px Arial';
             ctx.textAlign = 'center';
+
+            const statusText = isStableEmotion
+              ? `✅ %${Math.round(dominantConfidence * 100)}`
+              : `⏳ %${Math.round(dominantConfidence * 100)}`;
+
             ctx.fillText(
-              `%${Math.round(confidence * 100)}`,
+              statusText,
               canvasRef.current.width - box.x - box.width/2,
-              box.y - 5
+              box.y - 8
+            );
+
+            // Alt kısımda duygu adı
+            ctx.font = '12px Arial';
+            ctx.fillText(
+              dominantEmotion.toUpperCase(),
+              canvasRef.current.width - box.x - box.width/2,
+              box.y + box.height + 15
             );
           }
+        } else {
+          // Düşük güven durumunda canvas'ı temizle
+          if (canvasRef.current) {
+            const ctx = canvasRef.current.getContext('2d');
+            ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+          }
+          setIsStable(false);
         }
       } else {
-        // Yüz yok, canvas temizle
+        // Yüz bulunamadığında
         if (canvasRef.current) {
           const ctx = canvasRef.current.getContext('2d');
           ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
         }
+        setIsStable(false);
+        setConfidenceLevel(0);
       }
     } catch (error) {
-      // Sessiz hata
+      console.warn('Tespit hatası:', error.message);
     }
-  }, [isReady, currentEmotion, getRandomRecommendation]);
+  }, [isReady, currentEmotion, analyzeEmotionStability, getRandomRecommendation, createEmotionExplosion]);
 
-  // Sistem başlatma
+  // Sistem başlatma (aynı)
   useEffect(() => {
     let isMounted = true;
 
@@ -164,7 +308,6 @@ function App() {
         setLoading(true);
         setDisplayedEmotion('Sistem başlatılıyor...');
 
-        // Modelleri yükle
         await Promise.all([
           faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
           faceapi.nets.faceExpressionNet.loadFromUri('/models')
@@ -172,12 +315,12 @@ function App() {
 
         if (!isMounted) return;
 
-        // Basit kamera ayarları
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             width: 720,
             height: 560,
-            facingMode: 'user'
+            facingMode: 'user',
+            frameRate: { ideal: 30, max: 30 }
           }
         });
 
@@ -185,12 +328,10 @@ function App() {
 
         videoRef.current.srcObject = stream;
 
-        // Video hazır olduğunda
         videoRef.current.onloadedmetadata = () => {
           if (!isMounted || !videoRef.current) return;
 
           videoRef.current.play().then(() => {
-            // Canvas ayarla
             if (canvasRef.current) {
               canvasRef.current.width = videoRef.current.videoWidth;
               canvasRef.current.height = videoRef.current.videoHeight;
@@ -199,10 +340,9 @@ function App() {
             setLoading(false);
             setIsReady(true);
 
-            // İLK BAŞTA HER İKİ STATE'İ DE AYARLA
-            const initialText = 'Yüzünüzü kameraya gösterin';
+            const initialText = '🎯 Yüzünüzü kameraya gösterin ve sabit tutun';
             setDisplayedEmotion(initialText);
-            setCurrentEmotion('🤖 Hazır');
+            setCurrentEmotion('🤖 Sistem Hazır');
           });
         };
 
@@ -211,10 +351,10 @@ function App() {
 
         setLoading(false);
         if (error.name === 'NotAllowedError') {
-          setDisplayedEmotion('Kamera izni gerekli');
+          setDisplayedEmotion('❌ Kamera izni gerekli');
           setCurrentEmotion('❌ İzin Gerekli');
         } else {
-          setDisplayedEmotion('Kamera açılamadı');
+          setDisplayedEmotion('❌ Kamera açılamadı');
           setCurrentEmotion('❌ Hata');
         }
       }
@@ -230,10 +370,13 @@ function App() {
       if (detectionIntervalRef.current) {
         clearInterval(detectionIntervalRef.current);
       }
+      if (stabilityTimerRef.current) {
+        clearTimeout(stabilityTimerRef.current);
+      }
     };
   }, []);
 
-  // Tespit başlatma - ayrı useEffect
+  // Tespit başlatma
   useEffect(() => {
     if (isReady) {
       if (detectionIntervalRef.current) {
@@ -248,6 +391,15 @@ function App() {
       }
     };
   }, [isReady, detectFaces]);
+
+  // 🎯 Geçmişi temizleme fonksiyonu
+  const clearHistory = useCallback(() => {
+    setEmotionHistory([]);
+    emotionBufferRef.current = [];
+    setCurrentEmotion('🤖 Geçmiş Temizlendi');
+    setDisplayedEmotion('Yeni tespit için yüzünüzü gösterin');
+    setRecommendation('');
+  }, []);
 
   return (
     <div className="container">
@@ -274,20 +426,68 @@ function App() {
 
         <div className="emotion-display">
           {displayedEmotion}
+          {/* 🎯 Kararlılık ve güven göstergesi */}
+          {isReady && (
+            <div className="detection-status">
+              <div className={`stability-indicator ${isStable ? 'stable' : 'unstable'}`}>
+                {isStable ? '✅ Kararlı' : '⏳ Analiz ediliyor...'}
+              </div>
+              <div className="confidence-bar">
+                <div
+                  className="confidence-fill"
+                  style={{
+                    width: `${confidenceLevel}%`,
+                    backgroundColor: confidenceLevel >= MIN_CONFIDENCE * 100 ? '#4CAF50' : '#ff9800'
+                  }}
+                ></div>
+                <span className="confidence-text">Güven: %{confidenceLevel}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {loading && (
           <div className="loading">
             <div className="spinner"></div>
-            Başlatılıyor...
+            Sistem başlatılıyor...
           </div>
         )}
+
+        {/* Efektler (aynı) */}
+        <div className="explosion-container">
+          {explosions.map((explosion) => (
+            <div
+              key={explosion.id}
+              className="explosion-emoji"
+              style={{
+                left: `${explosion.x}%`,
+                top: `${explosion.y}%`,
+                fontSize: `${explosion.size}px`,
+                animationDuration: `${explosion.duration}ms`,
+                animationName: explosion.emotionType === 'angry' ? 'fireExplode' :
+                              explosion.emotionType === 'happy' ? 'flowerBloom' :
+                              explosion.emotionType === 'sad' ? 'rainDrop' :
+                              explosion.emotionType === 'fearful' ? 'ghostFloat' :
+                              explosion.emotionType === 'surprised' ? 'sparkExplode' :
+                              'explode',
+                filter: explosion.emotionType === 'angry' ? 'hue-rotate(0deg) brightness(1.2)' :
+                       explosion.emotionType === 'happy' ? 'hue-rotate(60deg) brightness(1.1)' :
+                       explosion.emotionType === 'sad' ? 'hue-rotate(240deg) brightness(0.8)' :
+                       explosion.emotionType === 'fearful' ? 'hue-rotate(280deg) brightness(0.7)' :
+                       explosion.emotionType === 'surprised' ? 'hue-rotate(320deg) brightness(1.3)' :
+                       'none'
+              }}
+            >
+              {explosion.emoji}
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="fun-section">
         <div className="header">
           <img src={logo} alt="Logo" className="logo" />
-          <h2>🧠 Duygu Dedektörü</h2>
+          <h2>🧠 Duygu Dedektörü v2.0</h2>
         </div>
 
         <div className="current-emotion">
@@ -297,12 +497,19 @@ function App() {
           <p className="emotion-label">
             {currentEmotion.split(' ').slice(1).join(' ') || 'Sistem Hazır'}
           </p>
+          {/* 🎯 Geliştirilmiş durum göstergesi */}
+          {isReady && (
+            <div className="emotion-meta">
+              <span className={`status-badge ${isStable ? 'stable' : 'analyzing'}`}>
+                {isStable ? '🎯 Tespit Edildi' : '🔍 Analiz Ediliyor'}
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* ÖNERİ BÖLÜMÜ - HER ZAMAN GÖRÜNÜR */}
         <div className="recommendation">
           <h4>💡 AI Tavsiyesi</h4>
-          <p>{recommendation || 'Bir duygu tespit edildiğinde tavsiye gösterilecek'}</p>
+          <p>{recommendation || 'Kararlı bir duygu tespit edildiğinde tavsiye gösterilecek'}</p>
         </div>
 
         <div className="controls">
@@ -312,12 +519,20 @@ function App() {
           >
             {showHistory ? '🧠 Ana Ekran' : '📊 Duygu Geçmişi'}
           </button>
+
+          {emotionHistory.length > 0 && (
+            <button
+              className="btn secondary"
+              onClick={clearHistory}
+            >
+              🗑️ Geçmişi Temizle
+            </button>
+          )}
         </div>
 
         {showHistory && (
           <div className="history-section">
-            <h4>📈 Son Duygular</h4>
-
+            <h4>📈 Tespit Geçmişi ({emotionHistory.length})</h4>
             {emotionHistory.length > 0 ? (
               <div className="history-grid">
                 {emotionHistory.map((item, index) => (
@@ -326,21 +541,46 @@ function App() {
                     <div className="meta">
                       <span className="time">{item.timestamp}</span>
                       <span className="confidence">%{item.confidence}</span>
+                      <span className="stability">{item.stability}</span>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="no-data">Henüz duygu kaydı yok</p>
+              <p className="no-data">Henüz kararlı duygu kaydı yok</p>
             )}
           </div>
         )}
 
+        <div className="system-info">
+          <h4>⚙️ Sistem Durumu</h4>
+          <div className="info-grid">
+            <div className="info-item">
+              <span className="label">Tespit Hızı:</span>
+              <span className="value">{DETECTION_INTERVAL}ms</span>
+            </div>
+            <div className="info-item">
+              <span className="label">Min. Güven:</span>
+              <span className="value">%{MIN_CONFIDENCE * 100}</span>
+            </div>
+            <div className="info-item">
+              <span className="label">Kararlılık:</span>
+              <span className="value">{STABILITY_THRESHOLD} tespit</span>
+            </div>
+            <div className="info-item">
+              <span className="label">Buffer Boyutu:</span>
+              <span className="value">{emotionBufferRef.current.length}/{BUFFER_SIZE}</span>
+            </div>
+          </div>
+        </div>
+
         <div className="footer">
-          <p>🤖 AI Duygu Analizi v.Early</p>
+          <p>🤖 AI Duygu Analizi v2.0 - Geliştirilmiş Kararlılık</p>
           <p>
             <a
-              href="https://ilkyar.org.tr/" target="_blank" rel="noopener noreferrer"
+              href="https://ilkyar.org.tr/"
+              target="_blank"
+              rel="noopener noreferrer"
               className="ilkyar-link"
               style={{
                 fontFamily: "'Comic Sans MS', 'Comic Sans', 'Chilanka', cursive, sans-serif",
@@ -351,9 +591,9 @@ function App() {
                 padding: '0.01em 0.4em',
               }}
             >
-            İLKYAR
+              İLKYAR
             </a>
-             projelerinde kullanılmak üzere geliştirilmiştir. Açık kaynaktır.
+            projelerinde kullanılmak üzere geliştirilmiştir. Açık kaynaktır.
           </p>
           <p>
             Geliştiriciye hata bildir{' '}
