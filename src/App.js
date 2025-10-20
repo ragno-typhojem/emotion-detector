@@ -163,7 +163,7 @@ function App() {
       const detection = await faceapi.detectSingleFace(
         video,
         new faceapi.TinyFaceDetectorOptions({
-          inputSize: 800, // 32'ye bölünebilen bir değer lazım, ona dikkat et.
+          inputSize: 64, // 32'ye bölünebilen bir değer lazım, ona dikkat et.
           scoreThreshold: 0.3 // Daha düşük eşik, daha iyi tespit
         })
       ).withFaceExpressions();
