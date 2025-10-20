@@ -163,7 +163,7 @@ function App() {
       const detection = await faceapi.detectSingleFace(
         video,
         new faceapi.TinyFaceDetectorOptions({
-          inputSize: 416, // Daha yüksek çözünürlük
+          inputSize: 815, // Daha yüksek çözünürlük
           scoreThreshold: 0.3 // Daha düşük eşik, daha iyi tespit
         })
       ).withFaceExpressions();
@@ -207,16 +207,23 @@ function App() {
               lastEmotionChangeRef.current = now;
 
               // Geçmişe ekle
-              setEmotionHistory(prev => [...prev.slice(-9), {
-                emotion: newEmotionText,
-                timestamp: new Date().toLocaleTimeString('tr-TR', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  second: '2-digit'
-                }),
-                confidence: Math.round(dominantConfidence * 100),
-                stability: '✅ Kararlı'
-              }]);
+              setEmotionHistory(prev => {
+                const MAX_HISTORY = 10;
+                const newEntry = {
+                  emotion: newEmotionText,
+                  timestamp: new Date().toLocaleTimeString('tr-TR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                  }),
+                  confidence: Math.round(dominantConfidence * 100),
+                  stability: '✅ Kararlı'
+                };
+                if (prev.length >= MAX_HISTORY) {
+                  return [...prev.slice(1), newEntry];
+                }
+                return [...prev, newEntry];
+              });
 
               // Efekt ve öneri
               createEmotionExplosion(dominantEmotion);
@@ -369,6 +376,7 @@ function App() {
       }
       if (detectionIntervalRef.current) {
         clearInterval(detectionIntervalRef.current);
+        detectionIntervalRef.current = null;
       }
       if (stabilityTimerRef.current) {
         clearTimeout(stabilityTimerRef.current);
