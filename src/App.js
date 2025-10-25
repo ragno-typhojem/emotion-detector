@@ -29,9 +29,9 @@ function App() {
 
   // Geliştirilmiş sabitler
   const EMOTION_CHANGE_COOLDOWN = 1100; // 1.5 saniye (daha uzun)
-  const DETECTION_INTERVAL = 110; // Biraz daha yavaş
-  const BUFFER_SIZE = 7; // Daha büyük buffer
-  const STABILITY_THRESHOLD = 5; // Kararlılık için gereken aynı duygu sayısı
+  const DETECTION_INTERVAL = 150; // Biraz daha yavaş
+  const BUFFER_SIZE =5; // Daha büyük buffer
+  const STABILITY_THRESHOLD = 3; // Kararlılık için gereken aynı duygu sayısı
   const MIN_CONFIDENCE = 0.65; // Daha yüksek güven eşiği
   const STABILITY_TIME = 1100; // 2 saniye kararlı kalma süresi
 
@@ -163,7 +163,7 @@ function App() {
       const detection = await faceapi.detectSingleFace(
         video,
         new faceapi.TinyFaceDetectorOptions({
-          inputSize: 416, // Daha yüksek çözünürlük
+          inputSize: 224, // Daha yüksek çözünürlük
           scoreThreshold: 0.3 // Daha düşük eşik, daha iyi tespit
         })
       ).withFaceExpressions();
@@ -317,10 +317,10 @@ function App() {
 
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            width: 720,
-            height: 560,
+            width: 640,
+            height: 480,
             facingMode: 'user',
-            frameRate: { ideal: 30, max: 30 }
+            frameRate: { ideal: 15, max: 20 }
           }
         });
 
