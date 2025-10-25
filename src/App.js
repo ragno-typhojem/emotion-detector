@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as faceapi from 'face-api.js';
 import './App.css';
 import logo from './logo.png';
-
+  // Bu Model emekli oluyor, alternatif modellere geçeceğim.
 function App() {
   // Ref'ler
   const videoRef = useRef(null);
