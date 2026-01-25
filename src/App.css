@@ -1,3 +1,4 @@
+/* Temel Reset ve Genel Stiller */
 * {
   margin: 0;
   padding: 0;
@@ -9,12 +10,14 @@ body {
   overflow: hidden;
 }
 
+/* Ana Konteyner */
 .container {
   display: flex;
   height: 100vh;
   width: 100vw;
 }
 
+/* Kamera Alanı */
 .detector-area {
   flex: 4; /* Ekranın %80'i */
   position: relative;
@@ -39,6 +42,7 @@ video {
   height: 100%;
 }
 
+/* Duygu Gösterimi */
 .emotion-display {
   position: absolute;
   bottom: 30px;
@@ -56,12 +60,20 @@ video {
   animation: pulse 2s infinite;
 }
 
+/* Animasyonlar */
 @keyframes pulse {
   0% { transform: scale(1); }
   50% { transform: scale(1.05); }
   100% { transform: scale(1); }
 }
 
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+/* Yükleme Ekranı */
 .loading {
   position: absolute;
   top: 50%;
@@ -75,6 +87,7 @@ video {
   z-index: 20;
 }
 
+/* Sağ Taraf Paneli */
 .fun-section {
   flex: 1; /* Ekranın %20'si */
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
@@ -93,6 +106,7 @@ video {
   padding-bottom: 10px;
 }
 
+/* Duygu Kartı */
 .current-emotion {
   background: white;
   border-radius: 15px;
@@ -101,25 +115,23 @@ video {
   margin-bottom: 20px;
   text-align: center;
 }
+
 .logo {
   display: block;
   margin: 0 auto 10px;
   width: 200px;
   height: auto;
-  z-index: 10;;
+  z-index: 10;
 }
+
+/* Büyük Emojiler */
 .big-emoji {
   font-size: 5rem;
   margin: 15px 0;
   animation: float 3s ease-in-out infinite;
 }
 
-@keyframes float {
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-  100% { transform: translateY(0px); }
-}
-
+/* Tavsiye Bölümü */
 .recommendation {
   background: white;
   border-radius: 15px;
@@ -138,6 +150,8 @@ video {
   line-height: 1.4;
   color: black;
 }
+
+/* Butonlar */
 .fun-button {
   background: #6c63ff;
   color: white;
@@ -157,6 +171,7 @@ video {
   transform: translateY(-2px);
 }
 
+/* Duygu Geçmişi */
 .history-section {
   background: white;
   border-radius: 15px;
@@ -182,6 +197,7 @@ video {
   font-size: 0.9rem;
 }
 
+/* Footer */
 .footer {
   margin-top: auto;
   text-align: center;
@@ -190,38 +206,70 @@ video {
   padding: 10px 0;
 }
 
-/* Mevcut CSS'in sonuna ekleyin */
+/* 💥 Yeni: Patlama Efekti */
+.explosion-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 1000;
+}
 
+.explosion-emoji {
+  position: absolute;
+  animation-name: explode;
+  animation-timing-function: ease-out;
+  will-change: transform, opacity;
+}
+
+@keyframes explode {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(
+      calc(-50px + 100px * 0.5),
+      calc(-50px + 100px * 0.5)
+    ) scale(0.5);
+    opacity: 0;
+  }
+}
+
+@keyframes colorPulse {
+  0% { filter: hue-rotate(0deg); }
+  100% { filter: hue-rotate(360deg); }
+}
+
+/* Mobil Uyum */
 @media screen and (max-width: 768px) {
-  /* Konteyner düzenini mobil için değiştir */
   .container {
     flex-direction: column;
     height: auto;
     min-height: 100vh;
   }
 
-  /* Detector Area */
   .detector-area {
     flex: none;
     width: 100%;
-    height: 50vh; /* Ekranın yarısı */
+    height: 50vh;
   }
 
-  /* Video boyutlandırma */
   video {
     width: 100%;
     height: 100%;
     object-fit: cover;
   }
 
-  /* Fun Section */
   .fun-section {
     flex: none;
     width: 100%;
     padding: 15px;
   }
 
-  /* Font boyutlarını küçült */
   .emotion-display {
     font-size: 1.5rem;
     padding: 10px 20px;
@@ -241,45 +289,30 @@ video {
     font-size: 1rem;
   }
 
-  /* Responsive Text Sizing */
   body {
     font-size: 14px;
-  }
-
-  /* Mobil cihazlarda kaydırma izni */
-  body {
     overflow-y: auto;
   }
 
-  /* Emotion History */
   .history-section {
     max-height: 300px;
   }
 
-  /* Footer */
   .footer {
     font-size: 0.7rem;
     padding: 5px;
   }
 
-  /* Responsive Button */
   .fun-button {
     width: 100%;
     padding: 10px 15px;
   }
 
-  /* Overlay ve Emotion Display */
-  .overlay, .emotion-display {
-    position: absolute;
-  }
-
-  /* Logo */
   .logo {
     width: 150px;
   }
 }
 
-/* Küçük ekranlar için ek ayarlamalar */
 @media screen and (max-width: 480px) {
   .detector-area {
     height: 40vh;
@@ -295,15 +328,93 @@ video {
   }
 }
 
-/* Dokunmatik cihazlar için iyileştirmeler */
 @media (hover: none) and (pointer: coarse) {
-  /* Dokunmatik cihazlar için özel stil ayarları */
   .fun-button {
     padding: 15px 20px;
   }
 
-  /* Daha büyük tıklanabilir alanlar */
   .recommendation, .current-emotion {
     padding: 20px;
+  }
+}
+/* Özel duygu animasyonları */
+@keyframes fireExplode {
+  0% {
+    transform: scale(0) rotate(0deg);
+    opacity: 1;
+    filter: hue-rotate(0deg) brightness(1.5);
+  }
+  50% {
+    transform: scale(3) rotate(180deg);
+    opacity: 0.8;
+    filter: hue-rotate(30deg) brightness(2);
+  }
+  100% {
+    transform: scale(0.3) rotate(360deg);
+    opacity: 0;
+    filter: hue-rotate(60deg) brightness(0.5);
+  }
+}
+
+@keyframes flowerBloom {
+  0% {
+    transform: scale(0) rotate(-45deg);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(3) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.8) rotate(45deg);
+    opacity: 0;
+  }
+}
+
+@keyframes rainDrop {
+  0% {
+    transform: translateY(-20px) scale(0.5);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(10px) scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(50px) scale(0.3);
+    opacity: 0;
+  }
+}
+
+@keyframes ghostFloat {
+  0% {
+    transform: scale(0.8) translateY(0px);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(4) translateY(-15px);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(0.7) translateY(-30px);
+    opacity: 0;
+  }
+}
+
+@keyframes sparkExplode {
+  0% {
+    transform: scale(0) rotate(0deg);
+    opacity: 1;
+    filter: brightness(2);
+  }
+  50% {
+    transform: scale(3) rotate(180deg);
+    opacity: 0.9;
+    filter: brightness(1.5);
+  }
+  100% {
+    transform: scale(0.2) rotate(720deg);
+    opacity: 0;
+    filter: brightness(0.5);
   }
 }
